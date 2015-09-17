@@ -22,7 +22,7 @@ List<UnsplashImage> unsplashImages = (List<UnsplashImage>)request.getAttribute("
 String itemSelectedEventName = (String)request.getAttribute("itemSelectedEventName");
 %>
 
-<div id="<portlet:namespace />flickerImageSelectorWrapper">
+<div id="<portlet:namespace />unsplashImageSelectorWrapper">
 
 	<liferay-ui:search-container
 		emptyResultsMessage="there-are-no-unsplash-images"
@@ -41,6 +41,7 @@ String itemSelectedEventName = (String)request.getAttribute("itemSelectedEventNa
 			<liferay-ui:search-container-column-text>
 				<div class="unsplash-image" data-url="<%= unsplashImage.getURL() %>">
 					<liferay-frontend:card
+						footer="<%= unsplashImage.getUserName() %>"
 						imageUrl="<%= unsplashImage.getPreviewURL() %>"
 					/>
 				</div>
@@ -53,8 +54,8 @@ String itemSelectedEventName = (String)request.getAttribute("itemSelectedEventNa
 	</liferay-ui:search-container>
 </div>
 
-<aui:script use="flickr-item-selector">
-	new Liferay.FlickrItemSelector(
+<aui:script use="unsplash-item-selector">
+	new Liferay.UnsplashItemSelector(
 		{
 			closeCaption: 'unsplash',
 			namespace: '<portlet:namespace/>',

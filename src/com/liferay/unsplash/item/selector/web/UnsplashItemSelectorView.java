@@ -28,6 +28,7 @@ import com.liferay.portal.kernel.json.JSONObject;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.HtmlUtil;
 import com.liferay.portal.kernel.util.ListUtil;
 import com.liferay.portal.kernel.util.ResourceBundleUtil;
 import com.liferay.portal.kernel.util.StringBundler;
@@ -108,82 +109,52 @@ public class UnsplashItemSelectorView
 			PortletURL portletURL, String itemSelectedEventName, boolean search)
 		throws IOException, ServletException {
 
-		int delta = GetterUtil.getInteger(
-			request.getParameter(SearchContainer.DEFAULT_DELTA_PARAM),
-			SearchContainer.DEFAULT_DELTA);
-		int cur = GetterUtil.getInteger(
-			request.getParameter(SearchContainer.DEFAULT_CUR_PARAM),
-			SearchContainer.DEFAULT_CUR);
+		String url = null;
 
-		StringBundler sb = new StringBundler(7);
+		if (search) {
+			url = getSearchURL(request);
+		}
+		else {
+			url = getPhotosURL(request);
+		}
 
-		sb.append("https://api.unsplash.com/photos/?");
-		sb.append("client_id=");
-		sb.append(_unsplashItemSelectorConfiguration.applicationId());
-		sb.append("&page=");
-		sb.append(cur);
-		sb.append("&per_page=");
-		sb.append(delta);
-
-		URL url = new URL(sb.toString());
+		URL urlObject = new URL(url);
 
 		HttpURLConnection httpURLConnection =
-			(HttpURLConnection)url.openConnection();
+			(HttpURLConnection)urlObject.openConnection();
 
 		httpURLConnection.setRequestMethod("GET");
 		httpURLConnection.setRequestProperty("Accept-Version", "v1");
 
 		int responseCode = httpURLConnection.getResponseCode();
+		int total = GetterUtil.getInteger(
+			httpURLConnection.getHeaderField("X-Total"));
 
 		List<UnsplashImage> unsplashImages = new ArrayList<>();
 
-		if (responseCode == HttpURLConnection.HTTP_OK) {
-			InputStream inputStream =
-				(InputStream)httpURLConnection.getContent();
+		if (responseCode != HttpURLConnection.HTTP_OK) {
+			_log.error("Unsplash return a response Code " + responseCode);
 
-			BufferedReader bufferedReader = new BufferedReader(
-				new InputStreamReader(inputStream));
-
-			sb = new StringBundler();
-
-			String line = null;
-
-			while ((line = bufferedReader.readLine()) != null) {
-				sb.append(line);
-			}
-
-			JSONArray jsonArray = null;
-
-			try {
-				jsonArray = JSONFactoryUtil.createJSONArray(sb.toString());
-
-				for (int i = 0; i < jsonArray.length(); i++) {
-					JSONObject jsonObject = jsonArray.getJSONObject(i);
-
-					JSONObject userJsonObject = jsonObject.getJSONObject(
-						"user");
-
-					String name = userJsonObject.getString("name");
-
-					JSONObject links = jsonObject.getJSONObject("links");
-
-					String imageUrl = links.getString("download");
-
-					JSONObject urls = jsonObject.getJSONObject("urls");
-
-					String previewURL = urls.getString("small");
-
-					UnsplashImage unsplashImage = new UnsplashImage(
-						imageUrl, name, previewURL);
-
-					unsplashImages.add(unsplashImage);
-				}
-			}
-			catch (JSONException e) {
-				e.printStackTrace();
-			}
+			return;
 		}
 
+		InputStream inputStream = (InputStream)httpURLConnection.getContent();
+
+		try {
+			JSONArray jsonArray = getJSONArrayResponse(inputStream);
+
+			for (int i = 0; i < jsonArray.length(); i++) {
+				UnsplashImage unsplashImage = getUnsplashImage(
+					jsonArray.getJSONObject(i));
+
+				unsplashImages.add(unsplashImage);
+			}
+		}
+		catch (JSONException e) {
+			_log.error("Cannot read JSON Response");
+		}
+
+		request.setAttribute("total", total);
 		request.setAttribute("unsplashImages", unsplashImages);
 		request.setAttribute("portletURL", portletURL);
 		request.setAttribute("itemSelectedEventName", itemSelectedEventName);
@@ -211,11 +182,91 @@ public class UnsplashItemSelectorView
 			UnsplashItemSelectorConfiguration.class, properties);
 	}
 
+	protected JSONArray getJSONArrayResponse(InputStream inputStream)
+		throws IOException, JSONException {
+
+		BufferedReader bufferedReader = new BufferedReader(
+			new InputStreamReader(inputStream));
+
+		StringBundler sb = new StringBundler();
+
+		String line = null;
+
+		while ((line = bufferedReader.readLine()) != null) {
+			sb.append(line);
+		}
+
+		return JSONFactoryUtil.createJSONArray(sb.toString());
+	}
+
 	protected String getLanguageKey(Locale locale, String key) {
 		ResourceBundle resourceBundle = ResourceBundleUtil.getBundle(
 			"content/Language", locale, getClass());
 
 		return resourceBundle.getString(key);
+	}
+
+	protected String getPhotosURL(ServletRequest request) {
+		int delta = GetterUtil.getInteger(
+			request.getParameter(SearchContainer.DEFAULT_DELTA_PARAM),
+			SearchContainer.DEFAULT_DELTA);
+		int cur = GetterUtil.getInteger(
+			request.getParameter(SearchContainer.DEFAULT_CUR_PARAM),
+			SearchContainer.DEFAULT_CUR);
+
+		StringBundler sb = new StringBundler(7);
+
+		sb.append("https://api.unsplash.com/photos/?");
+		sb.append("client_id=");
+		sb.append(_unsplashItemSelectorConfiguration.applicationId());
+		sb.append("&page=");
+		sb.append(cur);
+		sb.append("&per_page=");
+		sb.append(delta);
+
+		return sb.toString();
+	}
+
+	protected String getSearchURL(ServletRequest request) {
+		int delta = GetterUtil.getInteger(
+			request.getParameter(SearchContainer.DEFAULT_DELTA_PARAM),
+			SearchContainer.DEFAULT_DELTA);
+		int cur = GetterUtil.getInteger(
+			request.getParameter(SearchContainer.DEFAULT_CUR_PARAM),
+			SearchContainer.DEFAULT_CUR);
+
+		String keywords = GetterUtil.getString(
+			request.getParameter("keywords"));
+
+		StringBundler sb = new StringBundler(9);
+
+		sb.append("https://api.unsplash.com/photos/search/?");
+		sb.append("query=");
+		sb.append(HtmlUtil.escape(keywords));
+		sb.append("&client_id=");
+		sb.append(_unsplashItemSelectorConfiguration.applicationId());
+		sb.append("&page=");
+		sb.append(cur);
+		sb.append("&per_page=");
+		sb.append(delta);
+
+		return sb.toString();
+	}
+
+	protected UnsplashImage getUnsplashImage(JSONObject jsonObject) {
+		JSONObject userJsonObject = jsonObject.getJSONObject("user");
+
+		String name = userJsonObject.getString("name");
+
+		JSONObject links = jsonObject.getJSONObject("links");
+
+		String imageUrl = links.getString("download");
+
+		JSONObject urls = jsonObject.getJSONObject("urls");
+
+		String previewURL = urls.getString("small");
+
+		return new UnsplashImage(imageUrl, name, previewURL);
 	}
 
 	private static final Log _log = LogFactoryUtil.getLog(
