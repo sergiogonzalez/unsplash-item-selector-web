@@ -32,6 +32,7 @@ import com.liferay.portal.kernel.util.HtmlUtil;
 import com.liferay.portal.kernel.util.ListUtil;
 import com.liferay.portal.kernel.util.ResourceBundleUtil;
 import com.liferay.portal.kernel.util.StringBundler;
+import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.theme.ThemeDisplay;
 import com.liferay.unsplash.item.selector.web.configuration.UnsplashItemSelectorConfiguration;
 
@@ -99,6 +100,14 @@ public class UnsplashItemSelectorView
 
 	@Override
 	public boolean isVisible(ThemeDisplay themeDisplay) {
+		if (Validator.isNull(
+				_unsplashItemSelectorConfiguration.applicationId())) {
+
+			_log.error("Please configure Unsplash Application ID");
+
+			return false;
+		}
+
 		return true;
 	}
 
