@@ -4,4 +4,7 @@ Bundle-Version: 1.0.0
 Include-Resource:\
 	classes,\
 	META-INF/resources=src/META-INF/resources
+JS-Config: /META-INF/resources/js/config.js
+Require-Capability:\
+	osgi.extender;osgi.extender="jsp.taglib";uri="http://liferay.com/tld/frontend";version:Version="1.0.0"
 Web-ContextPath: /unsplash-item-selector-web
